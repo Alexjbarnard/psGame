@@ -1,9 +1,19 @@
 # main.py
 import sys
+import os
 import json
 import threading
 import time
 from pathlib import Path
+
+# This robust method ensures the project root is always in the system path.
+# It resolves the ModuleNotFoundError by making sub-packages discoverable.
+project_root = os.path.dirname(os.path.abspath(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Standard imports for the application's components.
+# The `gui` import is now dynamic, so it's not needed at the top level.
 from core import PitStopGame, save_game, load_game
 from cli.cli_main import start_cli_game
 
@@ -11,12 +21,14 @@ from cli.cli_main import start_cli_game
 SETTINGS_PATH = Path("data/configs/settings.json")
 DEFAULTS = {"tick_interval": 1.0, "autosave_interval": 30.0, "backups_to_keep": 10}
 
+
 def load_settings():
     try:
         data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
         return {**DEFAULTS, **data}
     except Exception:
         return DEFAULTS.copy()
+
 
 settings = load_settings()
 TICK_INTERVAL = float(settings["tick_interval"])
@@ -31,6 +43,7 @@ game = PitStopGame(saved_data)
 stop_event = threading.Event()
 lock = threading.Lock()
 
+
 def passive_income_loop():
     """Manages the passive income generation in a separate thread."""
     next_tick = time.monotonic()
@@ -44,6 +57,7 @@ def passive_income_loop():
         else:
             time.sleep(min(0.05, max(0.0, next_tick - now)))
 
+
 def autosave_loop():
     """Manages periodic autosaving in a separate thread."""
     next_save = time.monotonic() + AUTOSAVE_INTERVAL
@@ -56,21 +70,25 @@ def autosave_loop():
         else:
             time.sleep(0.25)
 
-# Start background threads
-threading.Thread(target=passive_income_loop, daemon=True).start()
-threading.Thread(target=autosave_loop, daemon=True).start()
 
 # --- Main entry point logic ---
 if "--gui" in sys.argv:
-    # We will import this only if we need it
-    from gui.gui_main import start_gui_game
+    # Stop background threads as Kivy has its own clock
+    stop_event.set()
+    # Import the gui module only when needed, after path is set.
+    from gui.main_gui import start_gui_game  # Corrected import statement
+
     try:
-        start_gui_game(game, lock, stop_event)
+        start_gui_game(game, lock, stop_event, settings)
     finally:
-        stop_event.set()
+        # Cleanup
         with lock:
             save_game(game.get_state(), backups_to_keep=BACKUPS_TO_KEEP)
 elif "--cli" in sys.argv:
+    # Start background threads
+    threading.Thread(target=passive_income_loop, daemon=True).start()
+    threading.Thread(target=autosave_loop, daemon=True).start()
+
     # Run the CLI version
     print("🚗 Welcome to Pit Stop (Terminal Edition with Real-Time Income)")
     try:

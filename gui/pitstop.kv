@@ -1,0 +1,59 @@
+# gui/pitstop.kv
+
+# This file defines the layout and design of the MainScreen
+# The root widget here corresponds to the MainScreen class in gui_main.py
+
+<MainScreen>:
+    orientation: "vertical"
+    padding: 20
+    spacing: 10
+
+    Label:
+        text: "Pit Stop"
+        font_size: '48sp'
+        size_hint_y: 0.2
+
+    Label:
+        id: currency_label
+        text: root.currency_text
+        font_size: '24sp'
+
+    Label:
+        id: income_label
+        text: root.income_text
+        font_size: '24sp'
+
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: 10
+        size_hint_y: 0.6
+
+        Button:
+            text: "Buy New Gas Pump"
+            on_release: root.buy_pump()
+
+        Button:
+            text: "Upgrade Gas Pump"
+            on_release: root.upgrade_pump()
+
+        Button:
+            text: "Upgrade Store"
+            on_release: root.upgrade_store()
+
+        Button:
+            text: "Remodel (Soft Reset)"
+            on_release: root.remodel()
+
+        Button:
+            text: "Prestige (Hard Reset)"
+            on_release: root.prestige()
+
+        Button:
+            text: "Save Game"
+            on_release: root.save_game()
+
+    Label:
+        id: stats_label
+        text: root.stats_text
+        font_size: '16sp'
+        size_hint_y: 0.2
