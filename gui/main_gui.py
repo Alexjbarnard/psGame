@@ -1,151 +1,158 @@
-"""
-Simple Tkinter GUI for Pit Stop.
+# gui/gui_main.py
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.clock import Clock
+from kivy.properties import StringProperty
+import threading
+import time
 
-Matches launcher signature:
-    run_gui(game, settings, stop_event, lock)
+# Import the real game engine and save manager
+from core.game_engine import PitStopGame
+from core.save_manager import save_game, load_game
 
-- Uses the shared PitStopGame instance (already ticking in main.py)
-- Reads state with a lock, updates UI every 250ms
-- Buttons call engine methods inside the same lock
-"""
 
-from __future__ import annotations
-import tkinter as tk
-from tkinter import ttk, messagebox
-from typing import Iterable
+class MainScreen(BoxLayout):
+    """
+    The main game screen layout.
+    """
+    # Define properties to automatically update the UI when they change
+    currency_text = StringProperty("Currency: $0.00")
+    income_text = StringProperty("Income: $0.00/s")
+    stats_text = StringProperty("")
 
-# Optional: small helper to flexibly call engine methods even if names differ
-def _call_any(obj, names: Iterable[str], *args, **kwargs):
-    for n in names:
-        fn = getattr(obj, n, None)
-        if callable(fn):
-            return fn(*args, **kwargs)
-    raise AttributeError(f"None of these methods exist on {type(obj).__name__}: {', '.join(names)}")
+    def __init__(self, game, lock, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = "vertical"
+        self.padding = 20
+        self.spacing = 10
+        self.game = game
+        self.lock = lock
 
-def run_gui(game, settings, stop_event, lock):
-    # Lazy import to avoid circulars
-    try:
-        from core.save_manager import save_game
-    except Exception:
-        save_game = None
+        # Create UI elements
+        self.add_widget(Label(text="Pit Stop", font_size='48sp', size_hint_y=0.2))
 
-    backups_to_keep = int(settings.get("backups_to_keep", 10))
+        # Display current stats
+        self.currency_label = Label(text=self.currency_text, font_size='24sp')
+        self.income_label = Label(text=self.income_text, font_size='24sp')
+        self.add_widget(self.currency_label)
+        self.add_widget(self.income_label)
 
-    root = tk.Tk()
-    root.title("⛽ Pit Stop")
+        # Container for action buttons
+        button_layout = BoxLayout(orientation='vertical', spacing=10, size_hint_y=0.6)
+        button_layout.add_widget(Button(text="Buy New Gas Pump", on_release=self.buy_pump))
+        button_layout.add_widget(Button(text="Upgrade Gas Pump", on_release=self.upgrade_pump))
+        button_layout.add_widget(Button(text="Upgrade Store", on_release=self.upgrade_store))
+        button_layout.add_widget(Button(text="Remodel (Soft Reset)", on_release=self.remodel))
+        button_layout.add_widget(Button(text="Prestige (Hard Reset)", on_release=self.prestige))
+        button_layout.add_widget(Button(text="Save Game", on_release=self.save_game))
 
-    # === Top: Stats ===
-    stats_frame = ttk.Frame(root, padding=10)
-    stats_frame.grid(row=0, column=0, sticky="nsew")
+        self.add_widget(button_layout)
 
-    lbl_cash_var = tk.StringVar()
-    lbl_income_var = tk.StringVar()
-    lbl_pumps_var = tk.StringVar()
-    lbl_pump_lvl_var = tk.StringVar()
-    lbl_store_lvl_var = tk.StringVar()
-    lbl_status_var = tk.StringVar(value="Ready.")
+        self.stats_label = Label(text=self.stats_text, font_size='16sp', size_hint_y=0.2)
+        self.add_widget(self.stats_label)
 
-    ttk.Label(stats_frame, text="Cash:").grid(row=0, column=0, sticky="w")
-    ttk.Label(stats_frame, textvariable=lbl_cash_var).grid(row=0, column=1, sticky="w", padx=(4, 12))
+        self.update_ui()
 
-    ttk.Label(stats_frame, text="Income/sec:").grid(row=0, column=2, sticky="w")
-    ttk.Label(stats_frame, textvariable=lbl_income_var).grid(row=0, column=3, sticky="w", padx=(4, 12))
+    def update_ui(self, dt=None):
+        """
+        Method called by the Kivy clock to refresh the UI.
+        This runs on the main thread and is safe for UI updates.
+        """
+        with self.lock:
+            state = self.game.get_state()
+            self.currency_label.text = f"Currency: ${state['currency']:.2f}"
+            self.income_label.text = f"Income: ${state['income_per_second']:.2f}/s"
 
-    ttk.Label(stats_frame, text="Pumps:").grid(row=1, column=0, sticky="w")
-    ttk.Label(stats_frame, textvariable=lbl_pumps_var).grid(row=1, column=1, sticky="w", padx=(4, 12))
+            self.stats_label.text = (
+                f"Pumps: {state['gas_pumps']} (Lvl {state['gas_pump_level']})\n"
+                f"Store Level: {state['store_level']}\n"
+                f"Remodels: {state['remodel_count']} (Bonus: {state['remodel_multiplier']:.2f}x)\n"
+                f"Prestige: {state['prestige_count']} (Bonus: {state['prestige_multiplier']:.2f}x)"
+            )
 
-    ttk.Label(stats_frame, text="Pump Lvl:").grid(row=1, column=2, sticky="w")
-    ttk.Label(stats_frame, textvariable=lbl_pump_lvl_var).grid(row=1, column=3, sticky="w", padx=(4, 12))
+    # Action methods for buttons
+    def buy_pump(self, instance):
+        with self.lock:
+            if self.game.buy_gas_pump():
+                print("New pump purchased!")
+            else:
+                print("Not enough currency!")
+        self.update_ui()
 
-    ttk.Label(stats_frame, text="Store Lvl:").grid(row=1, column=4, sticky="w")
-    ttk.Label(stats_frame, textvariable=lbl_store_lvl_var).grid(row=1, column=5, sticky="w", padx=(4, 12))
+    def upgrade_pump(self, instance):
+        with self.lock:
+            if self.game.upgrade_gas_pump():
+                print("Pump upgraded!")
+            else:
+                print("Not enough currency!")
+        self.update_ui()
 
-    # === Middle: Actions ===
-    btns = ttk.Frame(root, padding=(10, 0, 10, 10))
-    btns.grid(row=1, column=0, sticky="nsew")
-    btns.columnconfigure((0,1,2), weight=1)
+    def upgrade_store(self, instance):
+        with self.lock:
+            if self.game.upgrade_store():
+                print("Store upgraded!")
+            else:
+                print("Not enough currency!")
+        self.update_ui()
 
-    def do(action_names):
-        try:
-            with lock:
-                _call_any(game, action_names)
-            lbl_status_var.set(f"✅ {action_names[0].replace('_',' ').title()} OK")
-        except Exception as e:
-            lbl_status_var.set(f"⚠️ {e}")
+    def remodel(self, instance):
+        with self.lock:
+            self.game.remodel()
+            print("Remodel complete!")
+        self.update_ui()
 
-    ttk.Button(btns, text="Upgrade Pump",
-               command=lambda: do(("upgrade_pump", "upgrade_gas_pump"))).grid(row=0, column=0, sticky="ew", padx=4, pady=4)
+    def prestige(self, instance):
+        with self.lock:
+            self.game.prestige()
+            print("Prestige complete!")
+        self.update_ui()
 
-    ttk.Button(btns, text="Buy Pump",
-               command=lambda: do(("buy_pump", "buy_new_pump", "purchase_pump"))).grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+    def save_game(self, instance):
+        with self.lock:
+            # We will use the save function from main.py's settings
+            settings = {"backups_to_keep": 10}  # Placeholder until we pass it in properly
+            save_game(self.game.get_state(), backups_to_keep=settings["backups_to_keep"])
+            print("Game saved!")
+        self.update_ui()
 
-    ttk.Button(btns, text="Upgrade Store",
-               command=lambda: do(("upgrade_store",))).grid(row=0, column=2, sticky="ew", padx=4, pady=4)
 
-    ttk.Button(btns, text="Remodel",
-               command=lambda: do(("remodel",))).grid(row=1, column=0, sticky="ew", padx=4, pady=4)
+class PitStopApp(App):
+    def __init__(self, game, lock, **kwargs):
+        super().__init__(**kwargs)
+        self.game = game
+        self.lock = lock
 
-    ttk.Button(btns, text="Prestige",
-               command=lambda: do(("prestige",))).grid(row=1, column=1, sticky="ew", padx=4, pady=4)
+    def build(self):
+        # We use a Clock.schedule_interval to call game.tick() and update the UI
+        # We will not use the threading model from main.py
+        Clock.schedule_interval(self.update_game_and_ui, 1.0)
+        return MainScreen(self.game, self.lock)
 
-    def do_save():
-        if save_game is None:
-            lbl_status_var.set("⚠️ save_game not available")
-            return
-        try:
-            with lock:
-                save_game(game.get_state(), backups_to_keep=backups_to_keep)
-            lbl_status_var.set("💾 Saved.")
-        except Exception as e:
-            lbl_status_var.set(f"❌ Save failed: {e}")
+    def update_game_and_ui(self, dt):
+        """Main game loop for Kivy, runs on the UI thread."""
+        with self.lock:
+            self.game.tick(1)
+        self.root.update_ui()
 
-    ttk.Button(btns, text="Save Now", command=do_save).grid(row=1, column=2, sticky="ew", padx=4, pady=4)
 
-    # === Bottom: Status & Quit ===
-    bottom = ttk.Frame(root, padding=10)
-    bottom.grid(row=2, column=0, sticky="ew")
-    bottom.columnconfigure(0, weight=1)
+def start_gui_game(game, lock, stop_event):
+    """Function to launch the Kivy app."""
+    # When using Kivy's clock, we don't need a separate passive income loop thread.
+    # We should stop the existing threads from main.py if they are running.
+    print("Launching Kivy GUI...")
+    PitStopApp(game=game, lock=lock).run()
+    print("Kivy GUI closed.")
+    # Kivy's run() method blocks, so cleanup happens after it returns.
+    stop_event.set()
 
-    ttk.Label(bottom, textvariable=lbl_status_var, anchor="w").grid(row=0, column=0, sticky="ew")
-    ttk.Button(bottom, text="Quit", command=root.destroy).grid(row=0, column=1, sticky="e", padx=(10,0))
 
-    # === Refresh loop ===
-    def refresh_ui():
-        with lock:
-            try:
-                state = game.get_state()
-            except Exception:
-                state = {}
-        lbl_cash_var.set(f"{state.get('currency', 0):,.2f}")
-        ips = state.get('income_per_second', 0)
-        lbl_income_var.set(f"{ips:,.2f}")
-        lbl_pumps_var.set(str(state.get('gas_pumps', 0)))
-        lbl_pump_lvl_var.set(str(state.get('gas_pump_level', 0)))
-        lbl_store_lvl_var.set(str(state.get('store_level', 0)))
+if __name__ == '__main__':
+    # This block is for testing the GUI in isolation
+    from core.game_engine import PitStopGame
 
-        # Reschedule
-        if not stop_event.is_set():
-            root.after(250, refresh_ui)
-
-    refresh_ui()
-
-    def on_close():
-        # Signal main.py to wind down threads; main will also do a final save
-        try:
-            stop_event.set()
-        except Exception:
-            pass
-        root.destroy()
-
-    root.protocol("WM_DELETE_WINDOW", on_close)
-
-    # Basic theming for readability
-    try:
-        root.tk.call("ttk::style", "theme", "use", "clam")
-    except Exception:
-        pass
-
-    # Sensible minimum size
-    root.minsize(560, 200)
-    root.mainloop()
-
+    game = PitStopGame()
+    lock = threading.Lock()
+    stop_event = threading.Event()
+    start_gui_game(game, lock, stop_event)
