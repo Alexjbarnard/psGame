@@ -1,0 +1,4 @@
+data/savegame.json
+data/saves/
+.pytest_cache/
+
