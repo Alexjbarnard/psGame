@@ -1,59 +1,177 @@
 # gui/pitstop.kv
 
-# This file defines the layout and design of the MainScreen
-# The root widget here corresponds to the MainScreen class in gui_main.py
-
 <MainScreen>:
     orientation: "vertical"
-    padding: 20
-    spacing: 10
+    canvas.before:
+        Color:
+            rgba: 0, 0, 0, 1  # Black background
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
-    Label:
-        text: "Pit Stop"
-        font_size: '48sp'
-        size_hint_y: 0.2
-
-    Label:
-        id: currency_label
-        text: root.currency_text
-        font_size: '24sp'
-
-    Label:
-        id: income_label
-        text: root.income_text
-        font_size: '24sp'
-
+    # --- Header Section ---
     BoxLayout:
-        orientation: 'vertical'
+        id: header_box
+        orientation: "horizontal"
+        size_hint_y: 0.1
+        padding: 10
         spacing: 10
-        size_hint_y: 0.6
 
         Button:
-            text: "Buy New Gas Pump"
-            on_release: root.buy_pump()
+            text: 'Menu'
+            size_hint_x: 0.2
+
+        Label:
+            text: root.currency_text
+            font_size: '20sp'
+
+        Label:
+            text: root.income_text
+            font_size: '20sp'
 
         Button:
-            text: "Upgrade Gas Pump"
-            on_release: root.upgrade_pump()
+            text: '[font=fontawesome]\uf013[/font]' # Gear icon for settings
+            size_hint_x: 0.2
+            markup: True
+
+    # --- Main Upgrades Section ---
+    BoxLayout:
+        id: upgrades_box
+        orientation: 'vertical'
+        size_hint_y: 0.7
+        padding: 10
+        spacing: 5
+
+        Label:
+            text: 'Station Upgrades'
+            size_hint_y: None
+            height: '40dp'
+            font_size: '24sp'
+
+        # Gas Pump
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Gas Pump'
+            Button:
+                id: upgrade_gas_pump_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_pump()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Diesel Pump
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Diesel Pump'
+            Button:
+                id: upgrade_diesel_pump_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_store()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Propane Tanks
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Propane Tanks'
+            Button:
+                id: upgrade_propane_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_propane()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Arcade Games
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Arcade Games'
+            Button:
+                id: upgrade_arcade_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_arcade()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Fountain Drinks
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Fountain Drinks'
+            Button:
+                id: upgrade_drinks_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_drinks()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Lottery Tickets
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Lottery Tickets'
+            Button:
+                id: upgrade_lottery_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_lottery()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Carwash
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Carwash'
+            Button:
+                id: upgrade_carwash_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_carwash()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Mexican Restaurant
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Mexican Restaurant'
+            Button:
+                id: upgrade_restaurant_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_restaurant()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+        # Hotel
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Hotel'
+            Button:
+                id: upgrade_hotel_btn
+                text: 'Upgrade'
+                on_release: root.upgrade_hotel()
+                background_color: [0.5, 0.5, 0.5, 1]
+
+    # --- Footer Section ---
+    BoxLayout:
+        id: footer_box
+        orientation: "horizontal"
+        size_hint_y: 0.1
+        padding: 10
+        spacing: 10
 
         Button:
-            text: "Upgrade Store"
-            on_release: root.upgrade_store()
-
-        Button:
-            text: "Remodel (Soft Reset)"
+            text: 'Remodel'
             on_release: root.remodel()
 
         Button:
-            text: "Prestige (Hard Reset)"
+            text: 'Prestige'
             on_release: root.prestige()
 
-        Button:
-            text: "Save Game"
-            on_release: root.save_game()
-
-    Label:
-        id: stats_label
-        text: root.stats_text
-        font_size: '16sp'
-        size_hint_y: 0.2
+        Label:
+            text: root.version_info
+            size_hint_x: 0.2

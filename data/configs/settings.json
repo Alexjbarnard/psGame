@@ -1,6 +1,7 @@
 {
   "tick_interval": 1.0,
   "autosave_interval": 30.0,
-  "backups_to_keep": 10
+  "backups_to_keep": 10,
+  "version_number": "3.4"
 }
 
